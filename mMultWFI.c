@@ -17,39 +17,75 @@
 #include <time.h>
 
 #define INDEX 100
+#define n 4
 
 static void test_fail(char *file, int line, char *call, int retval);
 static void matrixMultiply();
 static void matrixMultiplywMemManipulation();
+static void reset(); 
 
 int main(int argc, char **argv) {
 clock_t begin;
 clock_t end;
-double time_spent;
+double timeSpent;
 double timeOverAll;
 
-for (int i = 0; i < 10; i++) {
+
+//
+for (int i = 0; i < n; i++) {
 
  begin = clock();
 matrixMultiply();
  end = clock();
-time_spent = (double)(end - begin)/CLOCKS_PER_SEC;  
-timeOverAll = timeOverAll + time_spent;
+timeSpent = (double)(end - begin)/CLOCKS_PER_SEC;  
+timeOverAll = timeOverAll + timeSpent;
 }
+reset(); 
 
-printf("Durschnittszeit: %f \n", timeOverAll/10);
+printf("Durschnittszeit: %f \n", timeOverAll/(n));
+timeSpent = 0;
+timeOverAll =0;
 
- printf("execution time without faults %f ms \n", time_spent);
 
  printf("starting fault injection... \n");
+
+ for (int j = 0; j < n; j++) {
  begin = clock();
 matrixMultiplywMemManipulation();
  end = clock();
-time_spent = (double)(end - begin); 
- printf("execution time with faults %f ms \n", time_spent);
+timeSpent = (double)(end - begin)/CLOCKS_PER_SEC; 
+timeOverAll = timeOverAll + timeSpent;
+
+
+ }
+ printf("Durschnittszeit: %f \n", timeOverAll/n);
+
+
 
 }
 
+//Trying to reset cpu cache
+static void reset(){
+
+  printf("Enter reset \n");
+   const int size =20*1024*1024; // Allocate 20M. Set much larger then L2
+     char *c = (char *)malloc(size);
+     for (int i = 0; i < 0xffff; i++){
+       for (int j = 0; j < size; j++) {
+         c[j] = i*j;
+         printf("..");
+       }
+     }
+
+     printf ("\n end reset \n");
+
+/*
+ echo 3 > /proc/sys/vm/drop_caches && swapoff -a && swapon -a && printf '\n%s\n' 'Ram-cache and Swap Cleared'
+OR
+$ su -c "echo 3 >'/proc/sys/vm/drop_caches' && swapoff -a && swapon -a && printf '\n%s\n' 'Ram-cache and Swap Cleared'" root
+*/
+
+}
 static void matrixMultiply() {
 
 extern void dummy(void *);

@@ -28,52 +28,46 @@ int main(int argc, char **argv) {
 clock_t begin;
 clock_t end;
 double timeSpent;
-double timeOverAll;
+double timeSum;
+double timeSpent1;
+double timeSum1;
 
 
-//
+
+
+
 for (int i = 0; i < n; i++) {
 
  begin = clock();
 matrixMultiply();
  end = clock();
+ printf("___________________________________________\n");
 timeSpent = (double)(end - begin)/CLOCKS_PER_SEC;  
-timeOverAll = timeOverAll + timeSpent;
-}
-reset(); 
+timeSum = timeSum + timeSpent;
 
-printf("Durschnittszeit: %f \n", timeOverAll/(n));
-timeSpent = 0;
-timeOverAll =0;
-
-
- printf("starting fault injection... \n");
-
- for (int j = 0; j < n; j++) {
- begin = clock();
+begin = clock();
 matrixMultiplywMemManipulation();
  end = clock();
-timeSpent = (double)(end - begin)/CLOCKS_PER_SEC; 
-timeOverAll = timeOverAll + timeSpent;
-
-
- }
- printf("Durschnittszeit: %f \n", timeOverAll/n);
-
+printf("___________________________________________\n");
+timeSpent1 = (double)(end - begin)/CLOCKS_PER_SEC;  
+timeSum1 = timeSum1 + timeSpent1;
 
 
 }
+printf("Average execution time with no faults:, %f \n", timeSum/n);
+printf("Average execution time with fault:, %f \n", timeSum1/n);
+}
 
-//Trying to reset cpu cache
+//Trying to reset cpu cache, taking way too long
 static void reset(){
 
   printf("Enter reset \n");
-   const int size =20*1024*1024; // Allocate 20M. Set much larger then L2
+   const int size =20*1024;//*1024; // Allocate 20M. Set much larger then L2 i < 0xffff
      char *c = (char *)malloc(size);
-     for (int i = 0; i < 0xffff; i++){
+     for (int i = 0; i < size; i++){
        for (int j = 0; j < size; j++) {
          c[j] = i*j;
-         printf("..");
+         printf(". \n");
        }
      }
 
@@ -94,7 +88,7 @@ extern void dummy(void *);
   long long flpins;
   int retval;
   int i,j,k;
-
+printf("Starting execution without any faults..\n");
   /* Initialize the Matrix arrays */
   for ( i=0; i<INDEX*INDEX; i++ ){
     mresult[0][i] = 0.0;
@@ -145,7 +139,7 @@ static void matrixMultiplywMemManipulation() {
  
  //Creating some random numbers for new, faulty value.
 //Counter to avoid of out of bounds errors
-printf("Manipulating  index (i -> fault i)... \n");
+printf("Manipulating index i -> faulty i... \n");
  int counter = 0;
  int man = rand() % INDEX;
   for (i=0;i<INDEX;i++)
@@ -160,7 +154,13 @@ printf("Manipulating  index (i -> fault i)... \n");
 	fclose(mem);
     man = rand() % INDEX;
     counter++;
-    printf("(%d->%d)", counter, i);
+    printf("(%d->%d) ", counter, i);
+    if(counter%10 == 0) {
+      printf("\n");
+
+    }
+
+
           mresult[i][j]=mresult[i][j] + matrixa[i][k]*matrixb[k][j];
           if(counter == 100) {
       goto end; 

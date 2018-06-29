@@ -47,8 +47,8 @@ timeSpent1 = (double)(end - begin)/CLOCKS_PER_SEC;
 timeSum1 = timeSum1 + timeSpent1;
 }
 
-printf("Average execution time with no faults:, %f \n", timeSum/n);
-printf("Average execution time with fault:, %f \n", timeSum1/n);
+printf("Average execution time with no faults: %f \n", timeSum/n);
+printf("Average execution time with fault: %f \n", timeSum1/n);
 }
 
 //Trying to reset cpu cache, taking way too long
@@ -129,8 +129,15 @@ int i,j,k;
 printf("Manipulating index i -> faulty i... \n");
  int counter = 0;
  int man = rand() % INDEX;
-  for (i=0;i<INDEX;i++)
-   for(j=0;j<INDEX;j++)
+  for (i=0;i<INDEX;i++) {
+    
+     if(counter == INDEX) {
+      goto end; 
+      counter = 0;
+    }
+     counter++;
+
+   for(j=0;j<INDEX;j++) {
     for(k=0;k<INDEX;k++) {
 //starting to manipulate the value of i
   FILE *mem = fopen("/proc/self/mem", "w");
@@ -138,18 +145,20 @@ printf("Manipulating index i -> faulty i... \n");
 	fwrite(&man, sizeof(man), 1, mem);
 	fclose(mem);
     man = rand() % INDEX;
-    counter++;
-    printf("(%d->%d) ", counter, i);
-    if(counter%10 == 0) {
-      printf("\n");
-    }
           mresult[i][j]=mresult[i][j] + matrixa[i][k]*matrixb[k][j];
-          if(counter == 100) {
-      goto end; 
     }
-    }
+  }
+  }
 
-end: printf("\n");
+end:
+
+if (counter<99) {
+
+ printf("----Execution abort---- \n ");
+
+}
+
+
   /* Collect the data into the variables passed in */
   if((retval=PAPI_flops( &real_time, &proc_time, &flpins, &mflops))<PAPI_OK)
     test_fail(__FILE__, __LINE__, "PAPI_flops", retval);

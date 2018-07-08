@@ -4,12 +4,15 @@
 #include <string.h>
 #include <time.h>
 #include <papi.h>
+#include <stdint.h>
+
 #define INDEX 100
 #define MULT 3
 
 
 static int presetEvents[150];
 static int presetSize;
+static int iteration; // iteration
 static int nativeSize;
 static int nativeEvents[150];
 static int init();
@@ -17,12 +20,14 @@ static int createData();
 static float matrixa[INDEX][INDEX], matrixb[INDEX][INDEX], mresult[INDEX][INDEX];
 static void setUp();
 static int benchmark();
+static int benchmarkFI();
 
 
 int main()
 {
     int EventSet = PAPI_NULL;
     long_long values[2];
+    long_long valuesFI[2];
     char eventCodeStr[PAPI_MAX_STR_LEN];
     int i, j;
     init();
@@ -36,12 +41,24 @@ int main()
 
  for (i = 0;i < presetSize; i++ ) {
         for (j = 0; j < MULT; j++) {
+
+            //set up PAPI
         PAPI_create_eventset(&EventSet);
         setUp(); 
+
+        //Measuring counter
             PAPI_add_event(EventSet, presetEvents[i]);
             PAPI_start(EventSet);
             benchmark();
             PAPI_stop(EventSet, values);
+
+            //measuring counter fault injection
+            
+        setUp();
+            PAPI_start(EventSet);
+           iteration = benchmarkFI();
+            PAPI_stop(EventSet, valuesFI);
+        
     
     
     PAPI_event_code_to_name(presetEvents[i], eventCodeStr);
@@ -58,14 +75,24 @@ int main()
                 }
         } else {
              printf("%d. run: %lld \n", j+1, values[0]);
+
             }
+
+
+             printf("%d. run with fault injection: %lld \n", j+1, valuesFI[0]);
+                printf("%d iteration (should be 100) \n",iteration);
+
+
+
     end:
 
-
+//Resetting papi eventset for next perfomance counter
     PAPI_cleanup_eventset(EventSet);
     PAPI_destroy_eventset(&EventSet);
     EventSet = PAPI_NULL;
     memset(values, '\0', sizeof(values));
+        memset(valuesFI, '\0', sizeof(valuesFI));
+
         }
 }
 
@@ -73,7 +100,64 @@ int main()
 }
 
 
+
+
+static int benchmarkFI() {
+
+int retval;
+int i,j,k;
+
+  
+ //Creating some random numbers for new, faulty value.
+//Counter to avoid of out of bounds errors
+//printf("Manipulating index i -> faulty i... \n");
+ int counter = 0;
+ int man = rand() % (INDEX);
+  for (i=0;i<INDEX;i++) {
+     if(counter == INDEX) {
+      goto end; 
+      //counter = 0;
+    }
+     counter++;
+
+   for(j=0;j<INDEX;j++) {
+    for(k=0;k<INDEX;k++) {
+//starting to manipulate the value of i
+  FILE *mem = fopen("/proc/self/mem", "w");
+	fseek(mem, (uintptr_t) &i, SEEK_CUR);
+	fwrite(&man, sizeof(man), 1, mem);
+	fclose(mem);
+    man = rand() % INDEX;
+          mresult[i][j]=mresult[i][j] + matrixa[i][k]*matrixb[k][j];
+    }
+  }
+  }
+
+end:
+/*
+if (counter<99) {
+return 1;
+// printf("----Execution abort---- \n ");
+
+} else if (counter > 100) {
+return 2; 
+
+// printf("----Execution too long---- \n ");
+
+
+
+}*/
+return counter; 
+}
+
+
 static void setUp() {
+
+
+        memset(mresult, '\0', sizeof(mresult));
+    memset(  matrixa, '\0', sizeof(  matrixa));
+    memset(matrixb, '\0', sizeof(matrixb));
+
     int i; 
   for ( i=0; i<INDEX*INDEX; i++ ){
     mresult[0][i] = 0.0;
@@ -91,12 +175,6 @@ static int benchmark() {
     for(k=0;k<INDEX;k++)
       mresult[i][j]=mresult[i][j] + matrixa[i][k]*matrixb[k][j];
 }
-
-
-
-
-
-
 
 
 

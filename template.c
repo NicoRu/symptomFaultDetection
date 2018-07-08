@@ -5,7 +5,7 @@
 #include <time.h>
 #include <papi.h>
 #define INDEX 100
-
+#define MULT 3
 
 
 static int presetEvents[150];
@@ -19,40 +19,55 @@ static void setUp();
 static int benchmark();
 
 
-
-
 int main()
 {
     int EventSet = PAPI_NULL;
-
+    long_long values[2];
+    char eventCodeStr[PAPI_MAX_STR_LEN];
+    int i, j;
     init();
     
+
+
     if(PAPI_library_init(PAPI_VER_CURRENT) < PAPI_OK) {
-    printf("Fehler");
+    printf("Fehler bei PAPI Initalisierung");
     }
+
+
+ for (i = 0;i < presetSize; i++ ) {
+        for (j = 0; j < MULT; j++) {
+        PAPI_create_eventset(&EventSet);
+        setUp(); 
+            PAPI_add_event(EventSet, presetEvents[i]);
+            PAPI_start(EventSet);
+            benchmark();
+            PAPI_stop(EventSet, values);
     
-    PAPI_create_eventset(&EventSet);
+    
+    PAPI_event_code_to_name(presetEvents[i], eventCodeStr);
 
-    setUp(); 
-    PAPI_add_event(EventSet, presetEvents[0]);
-    long_long values[1];
-
-    PAPI_start(EventSet);
-         benchmark();
-    PAPI_stop(EventSet, values);
-
- 
-
- printf("...%lld \n", values[0]);
-
- 
-
- printf("...%lld \n", values[8]);
-
-
+        if(j == 0) {
+            printf("Measuring %s: \n", eventCodeStr);
+            if(values[0] == 0) {
+                printf("Skipped %s (value is 0) \n", eventCodeStr);
+                i++;
+                j = MULT;
+                goto end;
+            } else {        
+                printf("1. run: %lld \n", values[0]);
+                }
+        } else {
+             printf("%d. run: %lld \n", j+1, values[0]);
+            }
+    end:
 
 
-    createData();
+    PAPI_cleanup_eventset(EventSet);
+    PAPI_destroy_eventset(&EventSet);
+    EventSet = PAPI_NULL;
+    memset(values, '\0', sizeof(values));
+        }
+}
 
     
 }
@@ -64,6 +79,8 @@ static void setUp() {
     mresult[0][i] = 0.0;
   matrixa[0][i] = matrixb[0][i] = rand()*(float)1.1; }
 }
+
+
 
 
 static int benchmark() {
@@ -94,22 +111,22 @@ retval = PAPI_library_init(PAPI_VER_CURRENT);
 PAPI_event_name_to_code("PAPI_L1_DCM", &nmb);
 int start = nmb;
 
-printf("Preset Events:\n");
+//printf("Preset Events:\n");
 
 do {
 if(PAPI_event_code_to_name(nmb, eventCodeStr) == PAPI_OK) {
 presetEvents[i] = nmb;
-printf("%s\n",eventCodeStr);
+//printf("%s\n",eventCodeStr);
 i ++;
 nmb++;
 }
 } while (PAPI_event_code_to_name(nmb, eventCodeStr) == PAPI_OK);
 
-printf("Total: %d Supported Preset Counter \n", nmb - start);
+//printf("Total: %d Supported Preset Counter \n", nmb - start);
 presetSize = nmb-start; 
 i = 0;
 int eventCode = 0 | PAPI_NATIVE_MASK;
-printf("Native Events:\n");
+//printf("Native Events:\n");
 
 do {
    /* Translate the integer code to a string */
@@ -118,10 +135,10 @@ do {
     i++;
    }
       /* Print all the native events for this platform */
-        printf("%s\n", eventCodeStr);
+      //  printf("%s\n", eventCodeStr);
    } while (PAPI_enum_event(&eventCode, 0) == PAPI_OK);
 
-printf("Total: %d Supported Native Counter \n", i);
+//printf("Total: %d Supported Native Counter \n", i);
 nativeSize = i;
 
 

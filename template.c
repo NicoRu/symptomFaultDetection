@@ -21,6 +21,9 @@ static float matrixa[INDEX][INDEX], matrixb[INDEX][INDEX], mresult[INDEX][INDEX]
 static void setUp();
 static int benchmark();
 static int benchmarkFI();
+static void calcStat(int value[MULT], int valueFI[MULT]);
+static int print = 0;
+
 
 
 int main()
@@ -28,8 +31,11 @@ int main()
     int EventSet = PAPI_NULL;
     long_long values[2];
     long_long valuesFI[2];
+
     char eventCodeStr[PAPI_MAX_STR_LEN];
     int i, j;
+    int stat[MULT];
+    int statFI[MULT];
     init();
     
 
@@ -51,23 +57,30 @@ int main()
             PAPI_start(EventSet);
             benchmark();
             PAPI_stop(EventSet, values);
-
             //measuring counter fault injection
-            
+            stat[j] = values[0];
         setUp();
+
+
+
             PAPI_start(EventSet);
            iteration = benchmarkFI();
             PAPI_stop(EventSet, valuesFI);
-        
-    
+
+        statFI[j] = valuesFI[0];
+
     
     PAPI_event_code_to_name(presetEvents[i], eventCodeStr);
 
         if(j == 0) {
-            printf("Measuring %s: \n", eventCodeStr);
+
+            printf("-----------------------------------------------------------------------------------\n");
+            printf("                            Measuring %s: \n", eventCodeStr);
+            printf("-----------------------------------------------------------------------------------\n");
             if(values[0] == 0) {
                 printf("Skipped %s (value is 0) \n", eventCodeStr);
                 i++;
+                print = 1; 
                 j = MULT;
                 goto end;
             } else {        
@@ -79,12 +92,12 @@ int main()
             }
 
 
-             printf("%d. run with fault injection: %lld \n", j+1, valuesFI[0]);
+             printf("%d. run with FI: %lld \n", j+1, valuesFI[0]);
                 printf("%d iteration (should be 100) \n",iteration);
 
 
-
-    end:
+end:
+    
 
 //Resetting papi eventset for next perfomance counter
     PAPI_cleanup_eventset(EventSet);
@@ -94,60 +107,85 @@ int main()
         memset(valuesFI, '\0', sizeof(valuesFI));
 
         }
+
+if(print == 0) {
+printf("-----------------------------------------------------------------------------------\n");
+            printf("                           Stats for %s: \n", eventCodeStr);
+            printf("-----------------------------------------------------------------------------------\n");
+calcStat(stat, statFI);
+
 }
+
+print = 0;
+
+}
+
 
     
 }
 
+static void calcStat(int value[MULT], int valueFI[MULT]) {
+double avg;
+double avgFI;
 
+int i = 0; 
+    for(i = 0; i < MULT; i++) {
+        avg += value[i]; 
+        avgFI += valueFI[i];
+
+    }
+
+
+    avg = avg / MULT;
+    avgFI = avgFI /MULT;
+
+    double cmp = avgFI/avg;
+    printf("Average: %f \nAverage with FI: %f (= %f multiple of average) \n", avg, avgFI, cmp );
+
+print = 0;
+
+}
 
 
 static int benchmarkFI() {
 
 int retval;
 int i,j,k;
+int manFactor = 1; //how often manipulation will start, 1 = always, 2 every 2nd time..
 
   
  //Creating some random numbers for new, faulty value.
 //Counter to avoid of out of bounds errors
 //printf("Manipulating index i -> faulty i... \n");
  int counter = 0;
- int man = rand() % (INDEX);
-  for (i=0;i<INDEX;i++) {
+ int man = rand() % INDEX;
+
+
+  for (i=0; i<INDEX; i++) {
      if(counter == INDEX) {
-      goto end; 
-      //counter = 0;
+      return counter; 
     }
      counter++;
 
    for(j=0;j<INDEX;j++) {
     for(k=0;k<INDEX;k++) {
-//starting to manipulate the value of i
+//starting to manipulate the value of i, every 2nd iteration of i
+
+if(counter % manFactor == 0) {
+man = rand() % INDEX;
+
   FILE *mem = fopen("/proc/self/mem", "w");
 	fseek(mem, (uintptr_t) &i, SEEK_CUR);
 	fwrite(&man, sizeof(man), 1, mem);
 	fclose(mem);
-    man = rand() % INDEX;
+
+}
           mresult[i][j]=mresult[i][j] + matrixa[i][k]*matrixb[k][j];
     }
   }
   }
 
-end:
-/*
-if (counter<99) {
-return 1;
-// printf("----Execution abort---- \n ");
-
-} else if (counter > 100) {
-return 2; 
-
-// printf("----Execution too long---- \n ");
-
-
-
-}*/
-return counter; 
+ counter; 
 }
 
 
@@ -181,7 +219,7 @@ static int benchmark() {
 /*Initialize PAPI Library and the supported events on the platform*/
 static int init() {
 
-int retval,i =0;
+int retval,i = 0;
 int nmb = 0; 
 char eventCodeStr[PAPI_MAX_STR_LEN];
 retval = PAPI_library_init(PAPI_VER_CURRENT);
